@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenWorkdays — business-day date math, no signup</title>
+<meta name="description" content="Business-day / working-day date arithmetic API. Add or count working days with your own holiday list. No account. No API key. One GET.">
+<style>
+  :root { --fg:#16181a; --mut:#5b6168; --line:#d9dde1; --acc:#0a5; --bg:#fbfbf9; }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--fg);
+    font:15px/1.6 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:760px; margin:0 auto; padding:48px 22px 80px; }
+  h1 { font-size:25px; letter-spacing:-.4px; margin:0 0 8px; }
+  .pitch { color:var(--mut); margin:0 0 30px; font-size:15px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:1.2px;
+       color:var(--mut); margin:38px 0 12px; font-weight:600; }
+  a { color:var(--acc); }
+  hr { border:0; border-top:1px solid var(--line); margin:34px 0; }
+  .demo { display:flex; gap:8px; flex-wrap:wrap; }
+  input[type=text] {
+    flex:1 1 340px; padding:10px 12px; border:1px solid var(--line);
+    background:#fff; font:inherit; color:var(--fg); border-radius:4px;
+  }
+  button {
+    padding:10px 18px; border:1px solid var(--fg); background:var(--fg);
+    color:#fff; font:inherit; cursor:pointer; border-radius:4px;
+  }
+  button:hover { background:#000; }
+  button:disabled { opacity:.5; cursor:default; }
+  pre {
+    background:#0e1012; color:#d6dde3; padding:16px; border-radius:6px;
+    overflow:auto; font-size:13px; line-height:1.55; margin:14px 0 0;
+    max-height:480px;
+  }
+  pre.copy { cursor:pointer; position:relative; }
+  pre.copy:hover { outline:1px solid var(--acc); }
+  pre.copy::after {
+    content:"copy"; position:absolute; top:8px; right:10px;
+    font-size:11px; color:#8a939b; letter-spacing:.5px;
+  }
+  pre.copy.copied::after { content:"copied ✓"; color:#5fd08a; }
+  code.inline { background:#eceef0; padding:1px 5px; border-radius:3px; font-size:13px; }
+  .box {
+    border:1px solid var(--line); border-left:3px solid var(--fg);
+    padding:14px 16px; background:#fff; font-size:14px; color:var(--mut);
+  }
+  .box b { color:var(--fg); }
+  footer { margin-top:50px; color:var(--mut); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>OpenWorkdays — business-day date math, no signup.</h1>
+  <p class="pitch">Add/subtract working days, count business days between two dates, or test if a date is a business day — with YOUR holiday list. No account, no API key, one GET. Built so AI agents get deterministic date math (LLMs are unreliable at it).</p>
+
+  <h2>Live demo</h2>
+  <div class="demo">
+    <input type="text" id="start" placeholder="2026-05-15" value="2026-05-15" spellcheck="false">
+    <input type="text" id="days" placeholder="5" value="5" spellcheck="false">
+    <input type="text" id="holidays" placeholder="2026-05-20,2026-05-21 (optional)" spellcheck="false">
+    <button id="go">Add business days →</button>
+  </div>
+  <pre id="out">// JSON response shows here</pre>
+
+  <h2>curl — copy &amp; paste</h2>
+  <pre id="curl" class="copy" title="click to copy">curl "https://openworkdays.vercel.app/api/businessdays?start=2026-05-15&days=5"</pre>
+
+  <h2>curl — business days between two dates</h2>
+  <pre id="curl2" class="copy" title="click to copy">curl "https://openworkdays.vercel.app/api/businessdays?start=2026-05-15&end=2026-06-15&holidays=2026-05-25"</pre>
+
+  <h2>JavaScript</h2>
+  <pre id="snippet">const base = "https://openworkdays.vercel.app";
+const r = await fetch(
+  base + "/api/businessdays?start=2026-05-15&days=5"
+);
+const out = await r.json(); // { mode:"add", result:"2026-05-22", resultWeekday:"fri", ... }</pre>
+
+  <h2>Limitations</h2>
+  <div class="box">
+    <b>v0.1 is pure UTC date arithmetic</b> — date-only, no time-of-day, no DST/timezones (that is recurrence-rule territory).
+    <b>You supply the holidays</b> — no built-in country holiday database (caller passes a holidays= list; that is deliberate).
+    <b>Open source</b> — self-host or use it free.
+  </div>
+
+  <hr>
+  <footer>
+    Source &amp; self-host: <a href="https://github.com/SolvoHQ/openworkdays">github.com/SolvoHQ/openworkdays</a> · MIT
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('go');
+  var startI = document.getElementById('start');
+  var daysI = document.getElementById('days');
+  var holI = document.getElementById('holidays');
+  var out = document.getElementById('out');
+  function run() {
+    var s = startI.value.trim();
+    var d = daysI.value.trim();
+    if (!s || !d) return;
+    btn.disabled = true;
+    out.textContent = '// fetching…';
+    var url = '/api/businessdays?start=' + encodeURIComponent(s) +
+              '&days=' + encodeURIComponent(d);
+    var h = holI.value.trim();
+    if (h) url += '&holidays=' + encodeURIComponent(h);
+    fetch(url)
+      .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+      .then(function (o) {
+        out.textContent = 'HTTP ' + o.s + '\n\n' + JSON.stringify(o.j, null, 2);
+      })
+      .catch(function (e) { out.textContent = 'error: ' + e; })
+      .finally(function () { btn.disabled = false; });
+  }
+  btn.addEventListener('click', run);
+  [startI, daysI, holI].forEach(function (el) {
+    el.addEventListener('keydown', function (e) { if (e.key === 'Enter') run(); });
+  });
+
+  // Click-to-copy on .copy <pre> blocks.
+  var copies = document.querySelectorAll('pre.copy');
+  for (var i = 0; i < copies.length; i++) {
+    (function (el) {
+      el.addEventListener('click', function () {
+        var txt = el.textContent;
+        function done() {
+          el.classList.add('copied');
+          setTimeout(function () { el.classList.remove('copied'); }, 1400);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(done, function () {});
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = txt; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); done(); } catch (e) {}
+          document.body.removeChild(ta);
+        }
+      });
+    })(copies[i]);
+  }
+})();
+</script>
+<script data-goatcounter="https://solvoworkdays.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<noscript><img src="https://solvoworkdays.goatcounter.com/count?p=/index-noscript" alt=""></noscript>
+</body>
+</html>
