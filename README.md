@@ -100,6 +100,35 @@ const r = await fetch(
 const out = await r.json(); // { mode:"add", result:"2026-05-22", resultWeekday:"fri", ... }
 ```
 
+## Use as an MCP tool (AI agents / Claude / Cursor / LLM clients)
+
+OpenWorkdays is also a remote [MCP](https://modelcontextprotocol.io) server, so
+an agent can call it as a tool with **no signup, no API key, no OAuth**.
+
+- Endpoint: **`https://openworkdays.vercel.app/api/mcp`**
+- Transport: **Streamable HTTP, stateless** (POST JSON-RPC 2.0, single
+  `application/json` response — no sessions, no SSE)
+- Exposes exactly one tool: **`businessdays`** — the mode (`add` / `diff` /
+  `is`) is inferred from which args you pass, returning the same JSON as the
+  REST endpoint (also as `structuredContent`)
+
+Drop this into any MCP client config (Claude Desktop, Cursor, or any client
+that speaks the Streamable HTTP transport):
+
+```json
+{ "mcpServers": { "openworkdays": { "url": "https://openworkdays.vercel.app/api/mcp" } } }
+```
+
+Quick smoke test:
+
+```sh
+curl -s -X POST https://openworkdays.vercel.app/api/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"businessdays","arguments":{"start":"2026-05-15","days":5}}}'
+```
+
+Over MCP, an upstream error comes back as a tool result with `isError: true`.
+
 ## Why
 
 Every public business-day API gates behind an account or API key:
@@ -127,10 +156,11 @@ arithmetic, an agent needs a deterministic endpoint rather than guessing.
 
 ## Self-host — it's zero-dependency files
 
-The entire API is one single zero-dependency Node serverless function:
-[`api/businessdays.js`](api/businessdays.js). No `npm install`, no deps at all.
-Deploy the folder to Vercel (zero-config `/api` detection) or drop the handler
-into any Node serverless runtime.
+The entire API is two single zero-dependency Node serverless functions:
+[`api/businessdays.js`](api/businessdays.js) (REST) and [`api/mcp.js`](api/mcp.js)
+(remote MCP). No `npm install`, no deps at all. Deploy the folder to Vercel
+(zero-config `/api` detection) or drop the handlers into any Node serverless
+runtime.
 
 ```sh
 git clone https://github.com/SolvoHQ/openworkdays
